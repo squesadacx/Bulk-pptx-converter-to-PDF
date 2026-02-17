@@ -307,7 +307,12 @@ class ConverterGUI:
             messagebox.showwarning("Busy", "A conversion is already in progress!")
             return
 
-        if not self.converter.libreoffice_path:
+        # Check if any conversion engine is available
+        if not self.converter.use_powerpoint and not hasattr(self.converter, 'libreoffice_path'):
+            messagebox.showerror("Error", "No conversion engine available!\n\nPlease install LibreOffice or PowerPoint.")
+            return
+
+        if not self.converter.use_powerpoint and not self.converter.libreoffice_path:
             messagebox.showerror("Error", "LibreOffice is not installed!\n\nPlease install LibreOffice first:\nhttps://www.libreoffice.org/download/download/")
             return
 
@@ -338,7 +343,12 @@ class ConverterGUI:
             messagebox.showwarning("Busy", "A conversion is already in progress!")
             return
 
-        if not self.converter.libreoffice_path:
+        # Check if any conversion engine is available
+        if not self.converter.use_powerpoint and not hasattr(self.converter, 'libreoffice_path'):
+            messagebox.showerror("Error", "No conversion engine available!\n\nPlease install LibreOffice or PowerPoint.")
+            return
+
+        if not self.converter.use_powerpoint and not self.converter.libreoffice_path:
             messagebox.showerror("Error", "LibreOffice is not installed!\n\nPlease install LibreOffice first:\nhttps://www.libreoffice.org/download/download/")
             return
 
@@ -369,7 +379,12 @@ class ConverterGUI:
             messagebox.showwarning("Busy", "A conversion is already in progress!")
             return
 
-        if not self.converter.libreoffice_path:
+        # Check if any conversion engine is available
+        if not self.converter.use_powerpoint and not hasattr(self.converter, 'libreoffice_path'):
+            messagebox.showerror("Error", "No conversion engine available!\n\nPlease install LibreOffice or PowerPoint.")
+            return
+
+        if not self.converter.use_powerpoint and not self.converter.libreoffice_path:
             messagebox.showerror("Error", "LibreOffice is not installed!\n\nPlease install LibreOffice first:\nhttps://www.libreoffice.org/download/download/")
             return
 
@@ -407,7 +422,9 @@ class ConverterGUI:
         quality = self.quality_var.get().split(' - ')[0]
 
         # Reinitialize converter with selected quality
-        self.converter = PPTXtoPDFConverter(self.converter.libreoffice_path, quality)
+        # Preserve libreoffice_path if it exists
+        libreoffice_path = getattr(self.converter, 'libreoffice_path', None)
+        self.converter = PPTXtoPDFConverter(libreoffice_path, quality)
 
         try:
             # Collect all files
