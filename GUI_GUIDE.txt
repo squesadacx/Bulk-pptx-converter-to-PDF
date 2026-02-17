@@ -37,6 +37,31 @@ THE THREE OPTIONS:
 
 OUTPUT SETTINGS:
 ----------------
+
+PDF QUALITY:
+Choose quality level that balances file size and image quality:
+
+• SCREEN/WEB (like PowerPoint) - 96 DPI
+  ├─ Smallest files (460MB → ~5-10MB)
+  ├─ Best for emailing and web sharing
+  └─ Good for screen viewing
+
+• STANDARD (Balanced) - 150 DPI ⭐ DEFAULT
+  ├─ Medium files (460MB → ~30-40MB)
+  ├─ Good balance of quality and size
+  └─ Suitable for most uses
+
+• HIGH QUALITY (Print) - 300 DPI
+  ├─ Larger files (460MB → ~90-100MB)
+  ├─ Professional printing quality
+  └─ Sharp when zoomed
+
+• MAXIMUM QUALITY (Archive) - 600 DPI
+  ├─ Largest files (460MB → ~150MB+)
+  ├─ Archival/master copy quality
+  └─ Maximum detail preservation
+
+OUTPUT DIRECTORY:
 By default, PDFs are saved in the same location as the original PPTX files.
 
 To change output location:

@@ -12,14 +12,44 @@ import argparse
 from typing import List
 
 class PPTXtoPDFConverter:
-    def __init__(self, libreoffice_path=None):
+    # Quality presets matching PowerPoint export behavior
+    QUALITY_PRESETS = {
+        'screen': {
+            'name': 'Screen/Web (like PowerPoint)',
+            'dpi': 96,
+            'jpeg_quality': 80,
+            'description': 'Smallest files, optimized for viewing on screen'
+        },
+        'standard': {
+            'name': 'Standard (Balanced)',
+            'dpi': 150,
+            'jpeg_quality': 85,
+            'description': 'Good balance between quality and file size'
+        },
+        'high': {
+            'name': 'High Quality (Print)',
+            'dpi': 300,
+            'jpeg_quality': 90,
+            'description': 'High quality for professional printing'
+        },
+        'maximum': {
+            'name': 'Maximum Quality (Archive)',
+            'dpi': 600,
+            'jpeg_quality': 95,
+            'description': 'Highest quality, largest files'
+        }
+    }
+
+    def __init__(self, libreoffice_path=None, quality='standard'):
         """
         Initialize converter with LibreOffice path
 
         Args:
             libreoffice_path: Custom path to LibreOffice executable (optional)
+            quality: Quality preset (screen, standard, high, maximum)
         """
         self.libreoffice_path = self._find_libreoffice(libreoffice_path)
+        self.quality = quality if quality in self.QUALITY_PRESETS else 'standard'
 
     def _find_libreoffice(self, custom_path=None):
         """Find LibreOffice executable on the system"""
@@ -90,14 +120,31 @@ class PPTXtoPDFConverter:
             print(f"Converting: {input_path.name} ({file_size:.2f} MB)")
 
         try:
-            # LibreOffice command for conversion
+            # Get quality settings
+            preset = self.QUALITY_PRESETS[self.quality]
+            dpi = preset['dpi']
+            jpeg_quality = preset['jpeg_quality']
+
+            # Build PDF export filter options for LibreOffice
+            # Format: --convert-to pdf:writer_pdf_Export:{"OptionName":value,...}
+            pdf_options = (
+                f"{{\"MaxImageResolution\":{dpi},"
+                f"\"Quality\":{jpeg_quality},"
+                f"\"ReduceImageResolution\":true,"
+                f"\"UseLosslessCompression\":false}}"
+            )
+
+            # LibreOffice command for conversion with quality settings
             cmd = [
                 str(self.libreoffice_path),
                 '--headless',
-                '--convert-to', 'pdf',
+                '--convert-to', f'pdf:writer_pdf_Export:{pdf_options}',
                 '--outdir', str(out_dir),
                 str(input_path)
             ]
+
+            if verbose:
+                print(f"Quality: {preset['name']} ({dpi} DPI)")
 
             result = subprocess.run(
                 cmd,
@@ -191,14 +238,20 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Convert single file
+  # Convert single file (standard quality)
   python convert_pptx_to_pdf.py presentation.pptx
+
+  # Convert with screen quality (smallest file, like PowerPoint)
+  python convert_pptx_to_pdf.py presentation.pptx --quality screen
+
+  # Convert with high quality for printing
+  python convert_pptx_to_pdf.py presentation.pptx --quality high
 
   # Convert all PPTX in a directory
   python convert_pptx_to_pdf.py /path/to/presentations/
 
   # Convert multiple files with custom output directory
-  python convert_pptx_to_pdf.py file1.pptx file2.pptx -o ./output/
+  python convert_pptx_to_pdf.py file1.pptx file2.pptx -o ./output/ --quality screen
 
   # Convert with custom LibreOffice path
   python convert_pptx_to_pdf.py presentation.pptx --libreoffice "C:/Program Files/LibreOffice/program/soffice.exe"
@@ -209,11 +262,14 @@ Examples:
     parser.add_argument('-o', '--output', help='Output directory for PDF files (default: same as input)')
     parser.add_argument('--libreoffice', help='Custom path to LibreOffice executable')
     parser.add_argument('-q', '--quiet', action='store_true', help='Suppress verbose output')
+    parser.add_argument('--quality', choices=['screen', 'standard', 'high', 'maximum'],
+                        default='standard',
+                        help='PDF quality preset: screen (smallest, like PowerPoint), standard (balanced), high (print quality), maximum (archive quality)')
 
     args = parser.parse_args()
 
-    # Initialize converter
-    converter = PPTXtoPDFConverter(args.libreoffice)
+    # Initialize converter with quality setting
+    converter = PPTXtoPDFConverter(args.libreoffice, args.quality)
 
     if not converter.libreoffice_path:
         print("\n" + "=" * 60)

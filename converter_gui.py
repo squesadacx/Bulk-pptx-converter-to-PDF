@@ -126,12 +126,41 @@ class ConverterGUI:
         output_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
         output_frame.columnconfigure(1, weight=1)
 
-        # Output directory selector
-        ttk.Label(output_frame, text="Output Directory:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        # Quality selector (row 0)
+        ttk.Label(output_frame, text="PDF Quality:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10), pady=(0, 10))
+
+        self.quality_var = tk.StringVar(value="standard")
+        quality_combo = ttk.Combobox(
+            output_frame,
+            textvariable=self.quality_var,
+            state='readonly',
+            width=30
+        )
+        quality_combo['values'] = (
+            'screen - Screen/Web (smallest, like PowerPoint)',
+            'standard - Standard (balanced quality/size)',
+            'high - High Quality (print quality)',
+            'maximum - Maximum Quality (archive)'
+        )
+        quality_combo.current(1)  # Default to standard
+        quality_combo.grid(row=0, column=1, columnspan=3, sticky=(tk.W, tk.E), padx=(0, 10), pady=(0, 10))
+        quality_combo.bind('<<ComboboxSelected>>', self.on_quality_change)
+
+        # Quality info label
+        self.quality_info_label = ttk.Label(
+            output_frame,
+            text="Good balance between quality and file size",
+            font=('Arial', 8),
+            foreground='gray'
+        )
+        self.quality_info_label.grid(row=1, column=1, columnspan=3, sticky=tk.W, pady=(0, 10))
+
+        # Output directory selector (row 2)
+        ttk.Label(output_frame, text="Output Directory:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10))
 
         self.output_dir_var = tk.StringVar(value="(Same as input)")
         output_entry = ttk.Entry(output_frame, textvariable=self.output_dir_var, state='readonly')
-        output_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        output_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
 
         btn_browse_output = ttk.Button(
             output_frame,
@@ -139,7 +168,7 @@ class ConverterGUI:
             command=self.select_output_directory,
             width=12
         )
-        btn_browse_output.grid(row=0, column=2)
+        btn_browse_output.grid(row=2, column=2)
 
         btn_reset_output = ttk.Button(
             output_frame,
@@ -147,7 +176,7 @@ class ConverterGUI:
             command=self.reset_output_directory,
             width=10
         )
-        btn_reset_output.grid(row=0, column=3, padx=(5, 0))
+        btn_reset_output.grid(row=2, column=3, padx=(5, 0))
 
         # Progress section
         progress_frame = ttk.LabelFrame(main_frame, text="Conversion Progress", padding="10")
@@ -241,6 +270,21 @@ class ConverterGUI:
         """Reset output directory to default"""
         self.output_dir_var.set("(Same as input)")
         self.log_message("Output directory reset to input location\n")
+
+    def on_quality_change(self, event=None):
+        """Handle quality dropdown change"""
+        quality_descriptions = {
+            'screen': 'Smallest files, optimized for viewing on screen (96 DPI)',
+            'standard': 'Good balance between quality and file size (150 DPI)',
+            'high': 'High quality for professional printing (300 DPI)',
+            'maximum': 'Highest quality, largest files (600 DPI)'
+        }
+
+        selected = self.quality_var.get().split(' - ')[0]
+        description = quality_descriptions.get(selected, '')
+        self.quality_info_label.config(text=description)
+
+        self.log_message(f"Quality changed to: {selected.upper()} - {description}\n")
 
     def get_output_directory(self):
         """Get the output directory or None if using default"""
@@ -348,6 +392,12 @@ class ConverterGUI:
         """Run the conversion in a separate thread"""
         self.is_converting = True
         output_dir = self.get_output_directory()
+
+        # Get selected quality
+        quality = self.quality_var.get().split(' - ')[0]
+
+        # Reinitialize converter with selected quality
+        self.converter = PPTXtoPDFConverter(self.converter.libreoffice_path, quality)
 
         try:
             # Collect all files
