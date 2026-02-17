@@ -32,8 +32,8 @@ class ConverterGUI:
         # Setup UI
         self.setup_ui()
 
-        # Check LibreOffice on startup
-        self.check_libreoffice()
+        # Check conversion engines on startup
+        self.check_engines()
 
         # Start queue processor
         self.process_queue()
@@ -217,29 +217,39 @@ class ConverterGUI:
         )
         btn_clear.grid(row=0, column=0, sticky=tk.W)
 
-        # LibreOffice status
-        self.libreoffice_status = ttk.Label(
+        # Conversion engine status
+        self.engine_status = ttk.Label(
             bottom_frame,
-            text="Checking LibreOffice...",
+            text="Checking conversion engines...",
             font=('Arial', 8)
         )
-        self.libreoffice_status.grid(row=0, column=1, padx=20)
+        self.engine_status.grid(row=0, column=1, padx=20)
 
-    def check_libreoffice(self):
-        """Check if LibreOffice is installed"""
-        if self.converter.libreoffice_path:
-            self.libreoffice_status.config(
+    def check_engines(self):
+        """Check which conversion engines are available"""
+        if self.converter.use_powerpoint:
+            self.engine_status.config(
+                text=f"✓ PowerPoint COM Ready (Best Quality)",
+                foreground='green'
+            )
+            self.log_message("Using conversion engine: PowerPoint COM\n", 'success')
+            self.log_message("This will produce the smallest files with native PowerPoint quality!\n")
+        elif self.converter.libreoffice_path:
+            self.engine_status.config(
                 text=f"✓ LibreOffice Ready",
                 foreground='green'
             )
-            self.log_message(f"LibreOffice found: {self.converter.libreoffice_path}\n")
+            self.log_message(f"Using conversion engine: LibreOffice\n")
+            self.log_message(f"LibreOffice path: {self.converter.libreoffice_path}\n")
+            self.log_message("For best compression, install: pip install pywin32\n", 'normal')
         else:
-            self.libreoffice_status.config(
-                text="✗ LibreOffice Not Found",
+            self.engine_status.config(
+                text="✗ No Conversion Engine Found",
                 foreground='red'
             )
-            self.log_message("ERROR: LibreOffice not installed!\n", 'error')
-            self.log_message("Please install LibreOffice from: https://www.libreoffice.org/download/download/\n", 'error')
+            self.log_message("ERROR: No conversion engine available!\n", 'error')
+            self.log_message("Please install LibreOffice: https://www.libreoffice.org/download/download/\n", 'error')
+            self.log_message("Or for PowerPoint COM (Windows): pip install pywin32\n", 'error')
 
     def log_message(self, message, tag='normal'):
         """Add message to status text area"""
