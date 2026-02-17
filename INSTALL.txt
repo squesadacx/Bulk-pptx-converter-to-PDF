@@ -1,0 +1,68 @@
+============================================================
+PPTX to PDF Converter - Quick Installation Guide
+============================================================
+
+Your converter is ready! Follow these steps:
+
+STEP 1: Install LibreOffice (REQUIRED)
+----------------------------------------
+LibreOffice is the conversion engine.
+
+Windows:
+  1. Go to: https://www.libreoffice.org/download/download/
+  2. Download "LibreOffice for Windows"
+  3. Run the installer
+  4. Use default installation settings
+
+Linux:
+  sudo apt-get install libreoffice
+
+macOS:
+  brew install --cask libreoffice
+
+
+STEP 2: Test the Installation
+----------------------------------------
+Open Command Prompt/Terminal and run:
+
+  cd C:\Users\squesada\pptx-to-pdf-converter
+  python convert_pptx_to_pdf.py --help
+
+You should see the help menu.
+
+
+STEP 3: Start Converting!
+----------------------------------------
+
+Convert a single file:
+  python convert_pptx_to_pdf.py "path\to\your\file.pptx"
+
+Convert all PPTX in a folder:
+  python convert_pptx_to_pdf.py "C:\Users\squesada\Documents\Presentations"
+
+Convert with output directory:
+  python convert_pptx_to_pdf.py file.pptx -o "C:\Output"
+
+
+WHAT'S INCLUDED:
+----------------------------------------
+- convert_pptx_to_pdf.py  : Main conversion script
+- README.md               : Full documentation
+- INSTALL.txt             : This file
+
+
+TROUBLESHOOTING:
+----------------------------------------
+If you get "LibreOffice not found":
+  1. Install LibreOffice (see STEP 1)
+  2. OR specify path manually:
+     python convert_pptx_to_pdf.py file.pptx --libreoffice "C:\Program Files\LibreOffice\program\soffice.exe"
+
+
+READY TO USE!
+----------------------------------------
+Your system: Windows 11 Pro
+Python version: 3.14.0
+Project location: C:\Users\squesada\pptx-to-pdf-converter
+
+Next: Install LibreOffice, then start converting!

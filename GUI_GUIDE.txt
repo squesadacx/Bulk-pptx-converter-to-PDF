@@ -1,0 +1,114 @@
+============================================================
+PPTX to PDF Converter - GUI Quick Guide
+============================================================
+
+LAUNCHING THE GUI:
+------------------
+Double-click: "Start Converter.bat"
+OR run: python converter_gui.py
+
+
+THE THREE OPTIONS:
+------------------
+
+1. 📄 CONVERT SINGLE FILE
+   ├─ Click the button
+   ├─ Browse and select one PPTX file
+   └─ Conversion starts automatically
+
+   Use when: You have one presentation to convert
+
+
+2. 📑 CONVERT MULTIPLE FILES
+   ├─ Click the button
+   ├─ Select multiple PPTX files (Ctrl+Click or Shift+Click)
+   └─ All selected files will be converted
+
+   Use when: You have specific files scattered in different folders
+
+
+3. 📁 CONVERT ENTIRE FOLDER
+   ├─ Click the button
+   ├─ Select a folder containing PPTX files
+   └─ ALL PPTX files in that folder (and subfolders) will be converted
+
+   Use when: You have a folder with many presentations
+
+
+OUTPUT SETTINGS:
+----------------
+By default, PDFs are saved in the same location as the original PPTX files.
+
+To change output location:
+1. Click "Browse..." in the Output Settings section
+2. Select where you want PDFs to be saved
+3. Click "Reset" to go back to default behavior
+
+
+WHAT YOU'LL SEE:
+----------------
+▪ Progress Bar - Shows overall conversion progress
+▪ Status Log - Real-time updates on what's happening
+  ✓ Green text = Success
+  ✗ Red text = Failed/Error
+▪ LibreOffice Status - Bottom left corner shows if LibreOffice is ready
+
+
+TIPS:
+-----
+• Large files (450MB+) may take several minutes to convert
+• You can't start a new conversion while one is running
+• The "Clear Log" button clears the status messages
+• Failed conversions don't stop the batch process
+
+
+TROUBLESHOOTING:
+----------------
+Problem: "LibreOffice Not Found" (red text at bottom)
+Solution: Install LibreOffice from https://www.libreoffice.org/download/download/
+
+Problem: GUI doesn't open
+Solution: Make sure Python is installed. Run: python --version
+
+Problem: Conversion fails
+Solution: Check if the PPTX file opens in LibreOffice Impress
+
+
+EXAMPLE WORKFLOW:
+-----------------
+1. Double-click "Start Converter.bat"
+2. GUI opens
+3. Check bottom left - should show "✓ LibreOffice Ready"
+4. Click "📁 Convert Entire Folder"
+5. Select your presentations folder
+6. Watch the progress bar and log
+7. Done! PDFs are in the same folder as your PPTX files
+
+
+CONVERTING 450MB FILES:
+-----------------------
+✓ No problem! The converter is designed for large files
+✓ Just be patient - may take 5-10 minutes per file
+✓ Watch the status log for progress updates
+✓ Don't close the window while converting
+
+
+KEYBOARD SHORTCUTS:
+-------------------
+(When GUI is focused)
+Ctrl+1 - Convert Single File (shortcut doesn't exist, just click button)
+Ctrl+2 - Convert Multiple Files (shortcut doesn't exist, just click button)
+Ctrl+3 - Convert Entire Folder (shortcut doesn't exist, just click button)
+
+Note: No keyboard shortcuts implemented yet - use mouse to click buttons
+
+
+NEED HELP?
+----------
+1. Read README.md for detailed documentation
+2. Check INSTALL.txt for installation help
+3. Make sure LibreOffice is installed and running
+4. Try converting a small test file first
+
+
+Happy converting! 🎉
