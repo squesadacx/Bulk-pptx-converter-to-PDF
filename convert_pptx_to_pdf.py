@@ -125,8 +125,9 @@ class PPTXtoPDFConverter:
             dpi = preset['dpi']
             jpeg_quality = preset['jpeg_quality']
 
-            # Build PDF export filter options for LibreOffice
-            # Format: --convert-to pdf:writer_pdf_Export:{"OptionName":value,...}
+            # Build PDF export filter options for LibreOffice Impress
+            # Note: LibreOffice uses "impress_pdf_Export" for PowerPoint files
+            # Format: --convert-to pdf:impress_pdf_Export:{"OptionName":value,...}
             pdf_options = (
                 f"{{\"MaxImageResolution\":{dpi},"
                 f"\"Quality\":{jpeg_quality},"
@@ -138,7 +139,7 @@ class PPTXtoPDFConverter:
             cmd = [
                 str(self.libreoffice_path),
                 '--headless',
-                '--convert-to', f'pdf:writer_pdf_Export:{pdf_options}',
+                '--convert-to', f'pdf:impress_pdf_Export:{pdf_options}',
                 '--outdir', str(out_dir),
                 str(input_path)
             ]
