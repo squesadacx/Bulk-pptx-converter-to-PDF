@@ -135,6 +135,7 @@ class PowerPointConverter:
             preset = self.QUALITY_SETTINGS[self.quality]
             print(f"Quality: {preset['name']} (PowerPoint COM)")
 
+        presentation = None
         try:
             # Start PowerPoint
             self._start_powerpoint()
@@ -143,6 +144,9 @@ class PowerPointConverter:
             # Use absolute path for COM
             abs_input = str(input_path.absolute())
             abs_output = str(output_path.absolute())
+
+            if verbose:
+                print(f"Opening presentation in PowerPoint...")
 
             presentation = self.powerpoint.Presentations.Open(
                 abs_input,
@@ -155,54 +159,56 @@ class PowerPointConverter:
             preset = self.QUALITY_SETTINGS[self.quality]
             quality_setting = preset['ppFixedFormatIntent']
 
-            # Export to PDF
-            # SaveAs parameters:
-            # - FileName: output path
-            # - FileFormat: 32 = ppSaveAsPDF
-            # - EmbedTrueTypeFonts: True
-            presentation.SaveAs(
+            if verbose:
+                print(f"Exporting to PDF with quality intent: {quality_setting}...")
+
+            # Export to PDF using ExportAsFixedFormat for quality control
+            presentation.ExportAsFixedFormat(
                 abs_output,
-                32,  # ppSaveAsPDF
-                EmbedTrueTypeFonts=True
+                2,  # ppFixedFormatTypePDF
+                quality_setting,  # Intent (1=Screen, 2=Print)
+                False,  # FrameSlides
+                0,  # HandoutOrder
+                0,  # OutputType (0=Slides)
+                False,  # PrintHiddenSlides
+                None,  # PrintRange
+                0,  # RangeType (0=All)
+                "",  # SlideShowName
+                True,  # IncludeDocProperties
+                True,  # KeepIRMSettings
+                True,  # DocStructureTags
+                True,  # BitmapMissingFonts
+                True   # UseISO19005_1 (PDF/A)
             )
-
-            # Alternative method with ExportAsFixedFormat for more control:
-            # presentation.ExportAsFixedFormat(
-            #     abs_output,
-            #     2,  # ppFixedFormatTypePDF
-            #     quality_setting,  # Intent (1=Screen, 2=Print)
-            #     False,  # FrameSlides
-            #     0,  # HandoutOrder (doesn't matter for slides)
-            #     0,  # OutputType (0=Slides)
-            #     False,  # PrintHiddenSlides
-            #     None,  # PrintRange
-            #     0,  # RangeType (0=All)
-            #     "",  # SlideShowName
-            #     True,  # IncludeDocProperties
-            #     True,  # KeepIRMSettings
-            #     True,  # DocStructureTags
-            #     True,  # BitmapMissingFonts
-            #     True,  # UseISO19005_1 (PDF/A)
-            # )
-
-            # Close presentation
-            presentation.Close()
 
             # Check if PDF was created
             if output_path.exists():
                 pdf_size = output_path.stat().st_size / (1024 * 1024)
                 if verbose:
-                    print(f"✓ Success: {output_path.name} ({pdf_size:.2f} MB)")
+                    print(f"OK Success: {output_path.name} ({pdf_size:.2f} MB)")
                 return True
             else:
                 if verbose:
-                    print(f"✗ Failed: PDF not created for {input_path.name}")
+                    print(f"X Failed: PDF not created for {input_path.name}")
                 return False
 
         except Exception as e:
+            import traceback
             if verbose:
-                print(f"✗ Error converting {input_path.name}: {str(e)}")
+                print(f"X Error converting {input_path.name}:")
+                print(f"  Error type: {type(e).__name__}")
+                print(f"  Error message: {str(e)}")
+                print(f"  Full traceback:")
+                traceback.print_exc()
             return False
+
+        finally:
+            # Always close presentation
+            if presentation:
+                try:
+                    presentation.Close()
+                except:
+                    pass
 
     def __del__(self):
         """Cleanup: Quit PowerPoint when object is destroyed"""
