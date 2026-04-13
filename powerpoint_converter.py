@@ -7,14 +7,15 @@ Windows-only module
 
 import os
 import sys
+import time
+import threading
 from pathlib import Path
 
 
 def is_powerpoint_available():
-    """Check if PowerPoint is available via COM"""
+    """Check if pywin32 is installed"""
     if sys.platform != 'win32':
         return False
-
     try:
         import win32com.client
         return True
@@ -23,10 +24,9 @@ def is_powerpoint_available():
 
 
 def check_powerpoint_installation():
-    """Check if PowerPoint is actually installed and working"""
+    """Check if PowerPoint is actually installed and responsive"""
     if not is_powerpoint_available():
         return False
-
     try:
         import win32com.client
         powerpoint = win32com.client.Dispatch("PowerPoint.Application")
@@ -36,77 +36,120 @@ def check_powerpoint_installation():
         return False
 
 
+def _kill_powerpoint_processes():
+    """Force-kill any lingering PowerPoint processes"""
+    try:
+        import subprocess
+        subprocess.run(
+            ['taskkill', '/F', '/IM', 'POWERPNT.EXE'],
+            capture_output=True
+        )
+        time.sleep(2)
+    except Exception:
+        pass
+
+
 class PowerPointConverter:
     """
-    PowerPoint COM automation for PDF conversion
-    Provides exact PowerPoint quality and compression
+    PowerPoint COM automation for PDF conversion.
+    Starts a fresh PowerPoint instance per file for maximum reliability.
     """
 
-    # PowerPoint PDF export quality constants
     QUALITY_SETTINGS = {
         'screen': {
-            'name': 'Screen/Web (PowerPoint Standard)',
+            'name': 'Screen/Web (smallest files)',
             'ppFixedFormatIntent': 1,  # ppFixedFormatIntentScreen
-            'description': 'Optimized for screen viewing, smallest files'
         },
         'standard': {
             'name': 'Standard Quality',
-            'ppFixedFormatIntent': 1,  # ppFixedFormatIntentScreen
-            'description': 'Balanced quality for most uses'
+            'ppFixedFormatIntent': 1,
         },
         'high': {
             'name': 'Print Quality',
             'ppFixedFormatIntent': 2,  # ppFixedFormatIntentPrint
-            'description': 'High quality for printing'
         },
         'maximum': {
             'name': 'Maximum Quality',
-            'ppFixedFormatIntent': 2,  # ppFixedFormatIntentPrint
-            'description': 'Highest quality, larger files'
-        }
+            'ppFixedFormatIntent': 2,
+        },
     }
 
+    # How long to wait for a single file conversion before giving up (seconds)
+    CONVERSION_TIMEOUT = 600  # 10 minutes
+
+    # How many times to retry a failed file before marking it as failed
+    MAX_RETRIES = 2
+
     def __init__(self, quality='screen'):
-        """
-        Initialize PowerPoint converter
-
-        Args:
-            quality: Quality preset (screen, standard, high, maximum)
-        """
         if not is_powerpoint_available():
-            raise ImportError("PowerPoint COM automation requires pywin32 package")
-
+            raise ImportError(
+                "PowerPoint COM automation requires pywin32. "
+                "Install with: pip install pywin32"
+            )
         self.quality = quality if quality in self.QUALITY_SETTINGS else 'screen'
-        self.powerpoint = None
 
-    def _start_powerpoint(self):
-        """Start PowerPoint application"""
-        if self.powerpoint is None:
-            import win32com.client
-            self.powerpoint = win32com.client.Dispatch("PowerPoint.Application")
-            # Don't show PowerPoint window
-            self.powerpoint.Visible = 0
+    def _fresh_powerpoint(self):
+        """
+        Create and return a brand-new PowerPoint COM instance.
+        Note: We do NOT set Visible=0 — PowerPoint may already be running and
+        setting Visible on an existing instance raises an error.
+        The presentation itself is opened with WithWindow=False so no slide
+        window appears even if the app is visible.
+        """
+        import win32com.client
+        powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+        return powerpoint
 
-    def _quit_powerpoint(self):
-        """Quit PowerPoint application"""
-        if self.powerpoint:
-            try:
-                self.powerpoint.Quit()
-            except:
-                pass
-            self.powerpoint = None
+    def _quit_safely(self, powerpoint):
+        """Quit a PowerPoint COM instance, ignoring all errors."""
+        try:
+            powerpoint.Quit()
+        except Exception:
+            pass
+
+    def _do_convert(self, abs_input, abs_output, quality_intent, result_holder):
+        """
+        Worker that runs inside a thread so we can enforce a hard timeout.
+        Writes True/exception into result_holder[0].
+        """
+        import pythoncom
+        pythoncom.CoInitialize()  # Required: COM must be initialized on every thread that uses it
+        powerpoint = None
+        presentation = None
+        try:
+            powerpoint = self._fresh_powerpoint()
+            presentation = powerpoint.Presentations.Open(
+                abs_input,
+                ReadOnly=True,
+                Untitled=True,
+                WithWindow=False,
+            )
+            # ppSaveAsPDF = 32
+            # SaveAs uses PowerPoint's default PDF export (screen quality, smallest files)
+            # This is equivalent to File > Save As > PDF in PowerPoint
+            presentation.SaveAs(abs_output, 32)
+            result_holder[0] = True
+        except Exception as exc:
+            result_holder[0] = exc
+        finally:
+            if presentation:
+                try:
+                    presentation.Close()
+                except Exception:
+                    pass
+            if powerpoint:
+                self._quit_safely(powerpoint)
+            pythoncom.CoUninitialize()
 
     def convert_file(self, input_file: str, output_dir: str = None, verbose: bool = True):
         """
-        Convert a single PPTX file to PDF using PowerPoint
+        Convert a single PPTX file to PDF.
 
-        Args:
-            input_file: Path to PPTX file
-            output_dir: Output directory (defaults to same as input)
-            verbose: Print conversion status
+        Starts a fresh PowerPoint instance for every file and enforces a hard
+        timeout. Retries up to MAX_RETRIES times on failure, killing leftover
+        PowerPoint processes between attempts.
 
-        Returns:
-            True if successful, False otherwise
+        Returns True on success, False on failure.
         """
         input_path = Path(input_file)
 
@@ -115,12 +158,12 @@ class PowerPointConverter:
                 print(f"ERROR: File not found: {input_file}")
             return False
 
-        if input_path.suffix.lower() not in ['.pptx', '.ppt']:
+        if input_path.suffix.lower() not in ('.pptx', '.ppt'):
             if verbose:
-                print(f"WARNING: {input_file} is not a PowerPoint file, skipping...")
+                print(f"SKIP: Not a PowerPoint file: {input_file}")
             return False
 
-        # Set output directory
+        # Resolve output path
         if output_dir:
             out_dir = Path(output_dir)
             out_dir.mkdir(parents=True, exist_ok=True)
@@ -128,119 +171,86 @@ class PowerPointConverter:
             out_dir = input_path.parent
 
         output_path = out_dir / f"{input_path.stem}.pdf"
+        abs_input  = str(input_path.resolve())
+        abs_output = str(output_path.resolve())
+
+        quality_intent = self.QUALITY_SETTINGS[self.quality]['ppFixedFormatIntent']
 
         if verbose:
-            file_size = input_path.stat().st_size / (1024 * 1024)  # MB
-            print(f"Converting: {input_path.name} ({file_size:.2f} MB)")
-            preset = self.QUALITY_SETTINGS[self.quality]
-            print(f"Quality: {preset['name']} (PowerPoint COM)")
+            mb = input_path.stat().st_size / (1024 * 1024)
+            print(f"Converting: {input_path.name} ({mb:.1f} MB) "
+                  f"[{self.QUALITY_SETTINGS[self.quality]['name']}]")
 
-        presentation = None
-        try:
-            # Start PowerPoint
-            self._start_powerpoint()
-
-            # Open presentation
-            # Use absolute path for COM
-            abs_input = str(input_path.absolute())
-            abs_output = str(output_path.absolute())
-
-            if verbose:
-                print(f"Opening presentation in PowerPoint...")
-
-            presentation = self.powerpoint.Presentations.Open(
-                abs_input,
-                ReadOnly=True,
-                Untitled=True,
-                WithWindow=False
-            )
-
-            # Get quality settings
-            preset = self.QUALITY_SETTINGS[self.quality]
-            quality_setting = preset['ppFixedFormatIntent']
-
-            if verbose:
-                print(f"Exporting to PDF with quality intent: {quality_setting}...")
-
-            # Export to PDF using ExportAsFixedFormat for quality control
-            presentation.ExportAsFixedFormat(
-                abs_output,
-                2,  # ppFixedFormatTypePDF
-                quality_setting,  # Intent (1=Screen, 2=Print)
-                False,  # FrameSlides
-                0,  # HandoutOrder
-                0,  # OutputType (0=Slides)
-                False,  # PrintHiddenSlides
-                None,  # PrintRange
-                0,  # RangeType (0=All)
-                "",  # SlideShowName
-                True,  # IncludeDocProperties
-                True,  # KeepIRMSettings
-                True,  # DocStructureTags
-                True,  # BitmapMissingFonts
-                True   # UseISO19005_1 (PDF/A)
-            )
-
-            # Check if PDF was created
-            if output_path.exists():
-                pdf_size = output_path.stat().st_size / (1024 * 1024)
+        for attempt in range(1, self.MAX_RETRIES + 2):  # attempts: 1, 2, 3
+            if attempt > 1:
                 if verbose:
-                    print(f"OK Success: {output_path.name} ({pdf_size:.2f} MB)")
-                return True
-            else:
+                    print(f"  Retry {attempt - 1}/{self.MAX_RETRIES} for {input_path.name}...")
+                # Clean up any stale PowerPoint processes before retrying
+                _kill_powerpoint_processes()
+
+            result_holder = [None]
+            thread = threading.Thread(
+                target=self._do_convert,
+                args=(abs_input, abs_output, quality_intent, result_holder),
+                daemon=True,
+            )
+            thread.start()
+            thread.join(timeout=self.CONVERSION_TIMEOUT)
+
+            if thread.is_alive():
+                # Hard timeout — conversion hung
                 if verbose:
-                    print(f"X Failed: PDF not created for {input_path.name}")
+                    print(f"  TIMEOUT: {input_path.name} exceeded "
+                          f"{self.CONVERSION_TIMEOUT}s — killing PowerPoint")
+                _kill_powerpoint_processes()
+                # Don't retry a timeout — the file is probably corrupt/too large
                 return False
 
-        except Exception as e:
-            import traceback
-            if verbose:
-                print(f"X Error converting {input_path.name}:")
-                print(f"  Error type: {type(e).__name__}")
-                print(f"  Error message: {str(e)}")
-                print(f"  Full traceback:")
-                traceback.print_exc()
-            return False
+            result = result_holder[0]
 
-        finally:
-            # Always close presentation
-            if presentation:
+            if result is True and output_path.exists():
+                pdf_mb = output_path.stat().st_size / (1024 * 1024)
+                if verbose:
+                    print(f"  OK: {output_path.name} ({pdf_mb:.1f} MB)")
+                return True
+
+            # Conversion returned an exception or PDF wasn't created
+            error_msg = str(result) if isinstance(result, Exception) else "PDF not created"
+            if verbose:
+                print(f"  FAILED (attempt {attempt}): {error_msg}")
+
+            # Remove partial output file if it exists
+            if output_path.exists():
                 try:
-                    presentation.Close()
-                except:
+                    output_path.unlink()
+                except Exception:
                     pass
 
-    def __del__(self):
-        """Cleanup: Quit PowerPoint when object is destroyed"""
-        self._quit_powerpoint()
+        if verbose:
+            print(f"  GIVING UP: {input_path.name} failed after "
+                  f"{self.MAX_RETRIES + 1} attempts")
+        return False
 
 
 def install_pywin32():
-    """Helper function to install pywin32 package"""
+    """Helper to install pywin32"""
     import subprocess
-
-    print("PowerPoint COM automation requires pywin32 package.")
     print("Installing pywin32...")
-
     try:
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pywin32'])
-        print("✓ pywin32 installed successfully!")
-        print("Please restart the application.")
+        print("pywin32 installed. Please restart the application.")
         return True
     except subprocess.CalledProcessError:
-        print("✗ Failed to install pywin32")
-        print("Please install manually: pip install pywin32")
+        print("Failed to install pywin32. Run manually: pip install pywin32")
         return False
 
 
 if __name__ == '__main__':
-    # Test if PowerPoint is available
     if check_powerpoint_installation():
         print("OK: PowerPoint COM automation is available")
     else:
         print("ERROR: PowerPoint COM automation is NOT available")
         if not is_powerpoint_available():
-            print("  Reason: pywin32 package not installed")
-            print("  Install: pip install pywin32")
+            print("  Reason: pywin32 not installed — run: pip install pywin32")
         else:
-            print("  Reason: PowerPoint may not be installed or not accessible")
+            print("  Reason: PowerPoint may not be installed or accessible")

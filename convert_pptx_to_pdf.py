@@ -49,7 +49,7 @@ class PPTXtoPDFConverter:
         }
     }
 
-    def __init__(self, libreoffice_path=None, quality='standard', use_powerpoint=None):
+    def __init__(self, libreoffice_path=None, quality='screen', use_powerpoint=None):
         """
         Initialize converter
 
@@ -58,7 +58,7 @@ class PPTXtoPDFConverter:
             quality: Quality preset (screen, standard, high, maximum)
             use_powerpoint: Force PowerPoint (True), LibreOffice (False), or auto-detect (None)
         """
-        self.quality = quality if quality in self.QUALITY_PRESETS else 'standard'
+        self.quality = quality if quality in self.QUALITY_PRESETS else 'screen'
 
         # Determine which converter to use
         if use_powerpoint is None:
@@ -125,8 +125,9 @@ class PPTXtoPDFConverter:
         Returns:
             True if successful, False otherwise
         """
-        # Use PowerPoint if available
+        # Use PowerPoint if available — sync quality in case it was changed after init
         if self.use_powerpoint and self.powerpoint_converter:
+            self.powerpoint_converter.quality = self.quality
             return self.powerpoint_converter.convert_file(input_file, output_dir, verbose)
 
         # Fall back to LibreOffice
@@ -187,7 +188,7 @@ class PPTXtoPDFConverter:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout for large files
+                timeout=1800  # 30 minute timeout for large files (450MB+)
             )
 
             if result.returncode == 0:
@@ -300,7 +301,7 @@ Examples:
     parser.add_argument('--libreoffice', help='Custom path to LibreOffice executable')
     parser.add_argument('-q', '--quiet', action='store_true', help='Suppress verbose output')
     parser.add_argument('--quality', choices=['screen', 'standard', 'high', 'maximum'],
-                        default='standard',
+                        default='screen',
                         help='PDF quality preset: screen (smallest, like PowerPoint), standard (balanced), high (print quality), maximum (archive quality)')
     parser.add_argument('--engine', choices=['auto', 'powerpoint', 'libreoffice'],
                         default='auto',

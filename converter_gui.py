@@ -20,7 +20,7 @@ class ConverterGUI:
         self.root.geometry("700x600")
         self.root.resizable(True, True)
 
-        # Initialize converter
+        # Initialize converter once — reused across all batches
         self.converter = PPTXtoPDFConverter()
 
         # Queue for thread-safe GUI updates
@@ -37,6 +37,9 @@ class ConverterGUI:
 
         # Start queue processor
         self.process_queue()
+
+        # Handle window close — ensure no orphan PowerPoint processes
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def setup_ui(self):
         """Create the user interface"""
@@ -129,7 +132,7 @@ class ConverterGUI:
         # Quality selector (row 0)
         ttk.Label(output_frame, text="PDF Quality:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10), pady=(0, 10))
 
-        self.quality_var = tk.StringVar(value="standard")
+        self.quality_var = tk.StringVar(value="screen")
         quality_combo = ttk.Combobox(
             output_frame,
             textvariable=self.quality_var,
@@ -142,7 +145,7 @@ class ConverterGUI:
             'high - High Quality (print quality)',
             'maximum - Maximum Quality (archive)'
         )
-        quality_combo.current(1)  # Default to standard
+        quality_combo.current(0)  # Default to screen
         quality_combo.grid(row=0, column=1, columnspan=3, sticky=(tk.W, tk.E), padx=(0, 10), pady=(0, 10))
         quality_combo.bind('<<ComboboxSelected>>', self.on_quality_change)
 
@@ -418,13 +421,11 @@ class ConverterGUI:
         self.is_converting = True
         output_dir = self.get_output_directory()
 
-        # Get selected quality
+        # Get selected quality and update the existing converter — no reinitialization
         quality = self.quality_var.get().split(' - ')[0]
-
-        # Reinitialize converter with selected quality
-        # Preserve libreoffice_path if it exists
-        libreoffice_path = getattr(self.converter, 'libreoffice_path', None)
-        self.converter = PPTXtoPDFConverter(libreoffice_path, quality)
+        self.converter.quality = quality
+        if self.converter.use_powerpoint and self.converter.powerpoint_converter:
+            self.converter.powerpoint_converter.quality = quality
 
         try:
             # Collect all files
@@ -521,6 +522,24 @@ class ConverterGUI:
 
         # Schedule next check
         self.root.after(100, self.process_queue)
+
+
+    def _on_close(self):
+        """Clean up and exit"""
+        if self.is_converting:
+            if not messagebox.askyesno(
+                "Conversion in Progress",
+                "A conversion is still running. Close anyway?\n\n"
+                "PowerPoint will be force-closed."
+            ):
+                return
+        # Best-effort: kill any PowerPoint left open by COM
+        try:
+            import subprocess
+            subprocess.run(['taskkill', '/F', '/IM', 'POWERPNT.EXE'], capture_output=True)
+        except Exception:
+            pass
+        self.root.destroy()
 
 
 def main():
